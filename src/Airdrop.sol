@@ -8,17 +8,46 @@ import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProo
 contract Airdrop is Ownable {
     IERC20 public immutable token;
     bytes32 public merkleRoot;
+    uint256 public claimStartTime;
+    uint256 public claimEndTime;
     mapping(address => bool) public hasClaimed;
 
     event Claimed(address indexed account, uint256 amount);
+    event MerkleRootUpdated(bytes32 merkleRoot);
+    event ClaimPeriodUpdated(uint256 startTime, uint256 endTime);
 
-    constructor(address _token, bytes32 _merkleRoot) Ownable(msg.sender) {
+    constructor(
+        address _token,
+        bytes32 _merkleRoot,
+        uint256 _claimStartTime,
+        uint256 _claimEndTime
+    ) Ownable(msg.sender) {
         require(_token != address(0), "Invalid token address");
+        require(_claimStartTime < _claimEndTime, "Invalid claim period");
         token = IERC20(_token);
         merkleRoot = _merkleRoot;
+        claimStartTime = _claimStartTime;
+        claimEndTime = _claimEndTime;
+    }
+
+    function updateMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
+        merkleRoot = _merkleRoot;
+        emit MerkleRootUpdated(_merkleRoot);
+    }
+
+    function updateClaimPeriod(
+        uint256 _startTime,
+        uint256 _endTime
+    ) external onlyOwner {
+        require(_startTime < _endTime, "Invalid claim period");
+        claimStartTime = _startTime;
+        claimEndTime = _endTime;
+        emit ClaimPeriodUpdated(_startTime, _endTime);
     }
 
     function claim(uint256 amount, bytes32[] calldata merkleProof) external {
+        require(block.timestamp >= claimStartTime, "Claim not started");
+        require(block.timestamp <= claimEndTime, "Claim ended");
         require(!hasClaimed[msg.sender], "Already claimed");
 
         bytes32 node = keccak256(abi.encodePacked(msg.sender, amount));
