@@ -61,4 +61,38 @@ contract Airdrop is Ownable {
 
         emit Claimed(msg.sender, amount);
     }
+
+    function batchClaim(
+        address[] calldata accounts,
+        uint256[] calldata amounts,
+        bytes32[][] calldata merkleProofs
+    ) external {
+        require(block.timestamp >= claimStartTime, "Claim not started");
+        require(block.timestamp <= claimEndTime, "Claim ended");
+        require(
+            accounts.length == amounts.length &&
+                amounts.length == merkleProofs.length,
+            "Invalid input"
+        );
+
+        for (uint256 i = 0; i < accounts.length; i++) {
+            if (!hasClaimed[accounts[i]]) {
+                bytes32 node = keccak256(
+                    abi.encodePacked(accounts[i], amounts[i])
+                );
+                require(
+                    MerkleProof.verify(merkleProofs[i], merkleRoot, node),
+                    "Invalid proof"
+                );
+
+                hasClaimed[accounts[i]] = true;
+                require(
+                    token.transfer(accounts[i], amounts[i]),
+                    "Transfer failed"
+                );
+
+                emit Claimed(accounts[i], amounts[i]);
+            }
+        }
+    }
 }
