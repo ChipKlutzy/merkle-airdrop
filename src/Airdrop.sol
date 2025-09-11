@@ -2,10 +2,12 @@
 pragma solidity ^0.8.20;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
-contract Airdrop is Ownable {
+contract Airdrop is Ownable, Pausable, ReentrancyGuard {
     IERC20 public immutable token;
     bytes32 public merkleRoot;
     uint256 public claimStartTime;
@@ -21,13 +23,21 @@ contract Airdrop is Ownable {
         bytes32 _merkleRoot,
         uint256 _claimStartTime,
         uint256 _claimEndTime
-    ) Ownable(msg.sender) {
+    ) Ownable(msg.sender) Pausable() ReentrancyGuard() {
         require(_token != address(0), "Invalid token address");
         require(_claimStartTime < _claimEndTime, "Invalid claim period");
         token = IERC20(_token);
         merkleRoot = _merkleRoot;
         claimStartTime = _claimStartTime;
         claimEndTime = _claimEndTime;
+    }
+
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     function updateMerkleRoot(bytes32 _merkleRoot) external onlyOwner {
@@ -45,7 +55,10 @@ contract Airdrop is Ownable {
         emit ClaimPeriodUpdated(_startTime, _endTime);
     }
 
-    function claim(uint256 amount, bytes32[] calldata merkleProof) external {
+    function claim(
+        uint256 amount,
+        bytes32[] calldata merkleProof
+    ) external nonReentrant whenNotPaused {
         require(block.timestamp >= claimStartTime, "Claim not started");
         require(block.timestamp <= claimEndTime, "Claim ended");
         require(!hasClaimed[msg.sender], "Already claimed");
@@ -66,7 +79,7 @@ contract Airdrop is Ownable {
         address[] calldata accounts,
         uint256[] calldata amounts,
         bytes32[][] calldata merkleProofs
-    ) external {
+    ) external nonReentrant whenNotPaused {
         require(block.timestamp >= claimStartTime, "Claim not started");
         require(block.timestamp <= claimEndTime, "Claim ended");
         require(
