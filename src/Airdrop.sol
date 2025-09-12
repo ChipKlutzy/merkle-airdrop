@@ -17,6 +17,7 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
     event Claimed(address indexed account, uint256 amount);
     event MerkleRootUpdated(bytes32 merkleRoot);
     event ClaimPeriodUpdated(uint256 startTime, uint256 endTime);
+    event EmergencyWithdrawn(address indexed token, uint256 amount);
 
     constructor(
         address _token,
@@ -106,6 +107,25 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
 
                 emit Claimed(accounts[i], amounts[i]);
             }
+        }
+    }
+
+    function emergencyWithdraw(address _token) external onlyOwner nonReentrant {
+        if (_token == address(0)) {
+            uint256 balance = address(this).balance;
+            require(balance > 0, "Nothing to withdraw");
+
+            (bool success, ) = owner().call{value: balance}("");
+            require(success, "Transfer failed");
+
+            emit EmergencyWithdrawn(_token, balance);
+        } else {
+            IERC20 erc20 = IERC20(_token);
+            uint256 balance = erc20.balanceOf(address(this));
+            require(balance > 0, "Nothing to withdraw");
+
+            require(erc20.transfer(owner(), balance), "Transfer failed");
+            emit EmergencyWithdrawn(_token, balance);
         }
     }
 }
