@@ -60,20 +60,15 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
         uint256 amount,
         bytes32[] calldata merkleProof
     ) external nonReentrant whenNotPaused {
-        require(block.timestamp >= claimStartTime, "Claim not started");
-        require(block.timestamp <= claimEndTime, "Claim ended");
-        require(!hasClaimed[msg.sender], "Already claimed");
+        _claimInternal(msg.sender, amount, merkleProof);
+    }
 
-        bytes32 node = keccak256(abi.encodePacked(msg.sender, amount));
-        require(
-            MerkleProof.verify(merkleProof, merkleRoot, node),
-            "Invalid proof"
-        );
-
-        hasClaimed[msg.sender] = true;
-        require(token.transfer(msg.sender, amount), "Transfer failed");
-
-        emit Claimed(msg.sender, amount);
+    function claimFor(
+        address account,
+        uint256 amount,
+        bytes32[] calldata merkleProof
+    ) external nonReentrant whenNotPaused {
+        _claimInternal(account, amount, merkleProof);
     }
 
     function batchClaim(
@@ -127,5 +122,26 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
             require(erc20.transfer(owner(), balance), "Transfer failed");
             emit EmergencyWithdrawn(_token, balance);
         }
+    }
+
+    function _claimInternal(
+        address account,
+        uint256 amount,
+        bytes32[] calldata merkleProof
+    ) internal {
+        require(block.timestamp >= claimStartTime, "Claim not started");
+        require(block.timestamp <= claimEndTime, "Claim ended");
+        require(!hasClaimed[account], "Already claimed");
+
+        bytes32 node = keccak256(abi.encodePacked(account, amount));
+        require(
+            MerkleProof.verify(merkleProof, merkleRoot, node),
+            "Invalid proof"
+        );
+
+        hasClaimed[account] = true;
+        require(token.transfer(account, amount), "Transfer failed");
+
+        emit Claimed(account, amount);
     }
 }
