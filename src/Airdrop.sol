@@ -13,6 +13,8 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
     uint256 public claimStartTime;
     uint256 public claimEndTime;
     mapping(address => bool) public hasClaimed;
+    mapping(address => uint256) public claimedAmount;
+    uint256 public totalClaimed;
 
     event Claimed(address indexed account, uint256 amount);
     event MerkleRootUpdated(bytes32 merkleRoot);
@@ -95,6 +97,8 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
                 );
 
                 hasClaimed[accounts[i]] = true;
+                claimedAmount[accounts[i]] = amounts[i];
+                totalClaimed += amounts[i];
                 require(
                     token.transfer(accounts[i], amounts[i]),
                     "Transfer failed"
@@ -140,6 +144,8 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
         );
 
         hasClaimed[account] = true;
+        claimedAmount[account] = amount;
+        totalClaimed += amount;
         require(token.transfer(account, amount), "Transfer failed");
 
         emit Claimed(account, amount);
