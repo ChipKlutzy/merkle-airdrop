@@ -5,9 +5,12 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract Airdrop is Ownable, Pausable, ReentrancyGuard {
+    using SafeERC20 for IERC20;
+
     IERC20 public immutable token;
     bytes32 public merkleRoot;
     uint256 public claimStartTime;
@@ -70,6 +73,7 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
         uint256 amount,
         bytes32[] calldata merkleProof
     ) external nonReentrant whenNotPaused {
+        require(account != address(0), "Invalid account");
         _claimInternal(account, amount, merkleProof);
     }
 
@@ -99,10 +103,7 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
                 hasClaimed[accounts[i]] = true;
                 claimedAmount[accounts[i]] = amounts[i];
                 totalClaimed += amounts[i];
-                require(
-                    token.transfer(accounts[i], amounts[i]),
-                    "Transfer failed"
-                );
+                token.safeTransfer(accounts[i], amounts[i]);
 
                 emit Claimed(accounts[i], amounts[i]);
             }
@@ -123,7 +124,7 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
             uint256 balance = erc20.balanceOf(address(this));
             require(balance > 0, "Nothing to withdraw");
 
-            require(erc20.transfer(owner(), balance), "Transfer failed");
+            erc20.safeTransfer(owner(), balance);
             emit EmergencyWithdrawn(_token, balance);
         }
     }
@@ -135,6 +136,7 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
     ) internal {
         require(block.timestamp >= claimStartTime, "Claim not started");
         require(block.timestamp <= claimEndTime, "Claim ended");
+        require(amount > 0, "Zero amount");
         require(!hasClaimed[account], "Already claimed");
 
         bytes32 node = keccak256(abi.encodePacked(account, amount));
@@ -146,7 +148,7 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
         hasClaimed[account] = true;
         claimedAmount[account] = amount;
         totalClaimed += amount;
-        require(token.transfer(account, amount), "Transfer failed");
+        token.safeTransfer(account, amount);
 
         emit Claimed(account, amount);
     }
