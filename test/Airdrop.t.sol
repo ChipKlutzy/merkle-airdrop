@@ -4,6 +4,7 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {Airdrop} from "../src/Airdrop.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
+import {MerkleProof} from "@openzeppelin/contracts/utils/cryptography/MerkleProof.sol";
 
 contract MockToken is ERC20 {
     constructor() ERC20("Mock Token", "MTK") {
@@ -51,5 +52,26 @@ contract AirdropTest is Test {
         assertEq(airdrop.merkleRoot(), merkleRoot);
         assertEq(airdrop.claimStartTime(), claimStartTime);
         assertEq(airdrop.claimEndTime(), claimEndTime);
+    }
+
+    function test_Claim() public {
+        bytes32[] memory proof1 = new bytes32[](1);
+        proof1[0] = leaf2;
+        assertEq(MerkleProof.processProof(proof1, leaf1), merkleRoot);
+        vm.warp(claimStartTime + 1);
+        vm.startPrank(user1);
+        airdrop.claim(100 * 10 ** 18, proof1);
+        assertEq(token.balanceOf(user1), 100 * 10 ** 18);
+        assertTrue(airdrop.hasClaimed(user1));
+        vm.stopPrank();
+
+        bytes32[] memory proof2 = new bytes32[](1);
+        proof2[0] = leaf1;
+        assertEq(MerkleProof.processProof(proof2, leaf2), merkleRoot);
+        vm.startPrank(user2);
+        airdrop.claim(200 * 10 ** 18, proof2);
+        assertEq(token.balanceOf(user2), 200 * 10 ** 18);
+        assertTrue(airdrop.hasClaimed(user2));
+        vm.stopPrank();
     }
 }
