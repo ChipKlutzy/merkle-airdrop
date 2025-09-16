@@ -74,4 +74,34 @@ contract AirdropTest is Test {
         assertTrue(airdrop.hasClaimed(user2));
         vm.stopPrank();
     }
+
+    function test_RevertWhen_ClaimBeforeStart() public {
+        bytes32[] memory proof1 = new bytes32[](1);
+        proof1[0] = leaf2;
+        vm.startPrank(user1);
+        vm.expectRevert("Claim not started");
+        airdrop.claim(100 * 10 ** 18, proof1);
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_ClaimAfterEnd() public {
+        bytes32[] memory proof1 = new bytes32[](1);
+        proof1[0] = leaf2;
+        vm.warp(claimEndTime + 1);
+        vm.startPrank(user1);
+        vm.expectRevert("Claim ended");
+        airdrop.claim(100 * 10 ** 18, proof1);
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_DoubleClaim() public {
+        bytes32[] memory proof1 = new bytes32[](1);
+        proof1[0] = leaf2;
+        vm.warp(claimStartTime + 1);
+        vm.startPrank(user1);
+        airdrop.claim(100 * 10 ** 18, proof1);
+        vm.expectRevert("Already claimed");
+        airdrop.claim(100 * 10 ** 18, proof1);
+        vm.stopPrank();
+    }
 }
