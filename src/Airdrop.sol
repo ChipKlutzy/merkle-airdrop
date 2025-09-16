@@ -15,6 +15,7 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
     bytes32 public merkleRoot;
     uint256 public claimStartTime;
     uint256 public claimEndTime;
+    uint256 public constant MAX_BATCH_SIZE = 100;
     mapping(address => bool) public hasClaimed;
     mapping(address => uint256) public claimedAmount;
     uint256 public totalClaimed;
@@ -84,13 +85,14 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
     ) external nonReentrant whenNotPaused {
         require(block.timestamp >= claimStartTime, "Claim not started");
         require(block.timestamp <= claimEndTime, "Claim ended");
+        uint256 len = accounts.length;
+        require(len > 0 && len <= MAX_BATCH_SIZE, "Invalid batch size");
         require(
-            accounts.length == amounts.length &&
-                amounts.length == merkleProofs.length,
+            amounts.length == len && merkleProofs.length == len,
             "Invalid input"
         );
 
-        for (uint256 i = 0; i < accounts.length; i++) {
+        for (uint256 i = 0; i < len; i++) {
             if (!hasClaimed[accounts[i]]) {
                 bytes32 node = keccak256(
                     abi.encodePacked(accounts[i], amounts[i])
