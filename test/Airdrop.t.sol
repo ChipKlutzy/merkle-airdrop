@@ -104,4 +104,28 @@ contract AirdropTest is Test {
         airdrop.claim(100 * 10 ** 18, proof1);
         vm.stopPrank();
     }
+
+    function test_BatchClaim() public {
+        address[] memory accounts = new address[](2);
+        uint256[] memory amounts = new uint256[](2);
+        bytes32[][] memory proofs = new bytes32[][](2);
+        accounts[0] = user1;
+        accounts[1] = user2;
+        amounts[0] = 100 * 10 ** 18;
+        amounts[1] = 200 * 10 ** 18;
+        proofs[0] = new bytes32[](1);
+        proofs[1] = new bytes32[](1);
+        proofs[0][0] = leaf2;
+        proofs[1][0] = leaf1;
+        assertEq(MerkleProof.processProof(proofs[0], leaf1), merkleRoot);
+        assertEq(MerkleProof.processProof(proofs[1], leaf2), merkleRoot);
+        vm.warp(claimStartTime + 1);
+        vm.startPrank(owner);
+        airdrop.batchClaim(accounts, amounts, proofs);
+        assertEq(token.balanceOf(user1), 100 * 10 ** 18);
+        assertEq(token.balanceOf(user2), 200 * 10 ** 18);
+        assertTrue(airdrop.hasClaimed(user1));
+        assertTrue(airdrop.hasClaimed(user2));
+        vm.stopPrank();
+    }
 }
