@@ -79,7 +79,7 @@ contract AirdropTest is Test {
         bytes32[] memory proof1 = new bytes32[](1);
         proof1[0] = leaf2;
         vm.startPrank(user1);
-        vm.expectRevert("Claim not started");
+        vm.expectRevert(Airdrop.ClaimNotStarted.selector);
         airdrop.claim(100 * 10 ** 18, proof1);
         vm.stopPrank();
     }
@@ -89,7 +89,7 @@ contract AirdropTest is Test {
         proof1[0] = leaf2;
         vm.warp(claimEndTime + 1);
         vm.startPrank(user1);
-        vm.expectRevert("Claim ended");
+        vm.expectRevert(Airdrop.ClaimEnded.selector);
         airdrop.claim(100 * 10 ** 18, proof1);
         vm.stopPrank();
     }
@@ -100,7 +100,7 @@ contract AirdropTest is Test {
         vm.warp(claimStartTime + 1);
         vm.startPrank(user1);
         airdrop.claim(100 * 10 ** 18, proof1);
-        vm.expectRevert("Already claimed");
+        vm.expectRevert(Airdrop.AlreadyClaimed.selector);
         airdrop.claim(100 * 10 ** 18, proof1);
         vm.stopPrank();
     }

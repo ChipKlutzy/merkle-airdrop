@@ -25,14 +25,28 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
     event ClaimPeriodUpdated(uint256 startTime, uint256 endTime);
     event EmergencyWithdrawn(address indexed token, uint256 amount);
 
+    error InvalidTokenAddress();
+    error InvalidClaimPeriod();
+    error ClaimNotStarted();
+    error ClaimEnded();
+    error AlreadyClaimed();
+    error InvalidProof();
+    error ArrayLengthMismatch();
+    error InvalidBatchSize();
+    error ZeroAmount();
+    error InvalidAccount();
+    error TransferFailed();
+    error NothingToWithdraw();
+
     constructor(
         address _token,
         bytes32 _merkleRoot,
         uint256 _claimStartTime,
         uint256 _claimEndTime
     ) Ownable(msg.sender) Pausable() ReentrancyGuard() {
-        require(_token != address(0), "Invalid token address");
-        require(_claimStartTime < _claimEndTime, "Invalid claim period");
+        if (_token == address(0)) revert InvalidTokenAddress();
+        if (_claimStartTime >= _claimEndTime) revert InvalidClaimPeriod();
+
         token = IERC20(_token);
         merkleRoot = _merkleRoot;
         claimStartTime = _claimStartTime;
@@ -56,7 +70,7 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
         uint256 _startTime,
         uint256 _endTime
     ) external onlyOwner {
-        require(_startTime < _endTime, "Invalid claim period");
+        if (_startTime >= _endTime) revert InvalidClaimPeriod();
         claimStartTime = _startTime;
         claimEndTime = _endTime;
         emit ClaimPeriodUpdated(_startTime, _endTime);
@@ -74,7 +88,7 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
         uint256 amount,
         bytes32[] calldata merkleProof
     ) external nonReentrant whenNotPaused {
-        require(account != address(0), "Invalid account");
+        if (account == address(0)) revert InvalidAccount();
         _claimInternal(account, amount, merkleProof);
     }
 
@@ -83,24 +97,20 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
         uint256[] calldata amounts,
         bytes32[][] calldata merkleProofs
     ) external nonReentrant whenNotPaused {
-        require(block.timestamp >= claimStartTime, "Claim not started");
-        require(block.timestamp <= claimEndTime, "Claim ended");
+        if (block.timestamp < claimStartTime) revert ClaimNotStarted();
+        if (block.timestamp > claimEndTime) revert ClaimEnded();
         uint256 len = accounts.length;
-        require(len > 0 && len <= MAX_BATCH_SIZE, "Invalid batch size");
-        require(
-            amounts.length == len && merkleProofs.length == len,
-            "Invalid input"
-        );
+        if (len == 0 || len > MAX_BATCH_SIZE) revert InvalidBatchSize();
+        if (amounts.length != len || merkleProofs.length != len)
+            revert ArrayLengthMismatch();
 
         for (uint256 i = 0; i < len; i++) {
             if (!hasClaimed[accounts[i]]) {
                 bytes32 node = keccak256(
                     abi.encodePacked(accounts[i], amounts[i])
                 );
-                require(
-                    MerkleProof.verify(merkleProofs[i], merkleRoot, node),
-                    "Invalid proof"
-                );
+                if (!MerkleProof.verify(merkleProofs[i], merkleRoot, node))
+                    revert InvalidProof();
 
                 hasClaimed[accounts[i]] = true;
                 claimedAmount[accounts[i]] = amounts[i];
@@ -115,16 +125,16 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
     function emergencyWithdraw(address _token) external onlyOwner nonReentrant {
         if (_token == address(0)) {
             uint256 balance = address(this).balance;
-            require(balance > 0, "Nothing to withdraw");
+            if (balance == 0) revert NothingToWithdraw();
 
             (bool success, ) = owner().call{value: balance}("");
-            require(success, "Transfer failed");
+            if (!success) revert TransferFailed();
 
             emit EmergencyWithdrawn(_token, balance);
         } else {
             IERC20 erc20 = IERC20(_token);
             uint256 balance = erc20.balanceOf(address(this));
-            require(balance > 0, "Nothing to withdraw");
+            if (balance == 0) revert NothingToWithdraw();
 
             erc20.safeTransfer(owner(), balance);
             emit EmergencyWithdrawn(_token, balance);
@@ -136,16 +146,14 @@ contract Airdrop is Ownable, Pausable, ReentrancyGuard {
         uint256 amount,
         bytes32[] calldata merkleProof
     ) internal {
-        require(block.timestamp >= claimStartTime, "Claim not started");
-        require(block.timestamp <= claimEndTime, "Claim ended");
-        require(amount > 0, "Zero amount");
-        require(!hasClaimed[account], "Already claimed");
+        if (block.timestamp < claimStartTime) revert ClaimNotStarted();
+        if (block.timestamp > claimEndTime) revert ClaimEnded();
+        if (amount == 0) revert ZeroAmount();
+        if (hasClaimed[account]) revert AlreadyClaimed();
 
         bytes32 node = keccak256(abi.encodePacked(account, amount));
-        require(
-            MerkleProof.verify(merkleProof, merkleRoot, node),
-            "Invalid proof"
-        );
+        if (!MerkleProof.verify(merkleProof, merkleRoot, node))
+            revert InvalidProof();
 
         hasClaimed[account] = true;
         claimedAmount[account] = amount;
