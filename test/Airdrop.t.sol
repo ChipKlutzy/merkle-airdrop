@@ -129,6 +129,21 @@ contract AirdropTest is Test {
         vm.stopPrank();
     }
 
+    function test_ClaimFor() public {
+        bytes32[] memory proof1 = new bytes32[](1);
+        proof1[0] = leaf2;
+        vm.warp(claimStartTime + 1);
+
+        address caller = address(4);
+        vm.startPrank(caller);
+        airdrop.claimFor(user1, 100 * 10 ** 18, proof1);
+        vm.stopPrank();
+
+        assertEq(token.balanceOf(user1), 100 * 10 ** 18);
+        assertTrue(airdrop.hasClaimed(user1));
+        assertEq(airdrop.claimedAmount(user1), 100 * 10 ** 18);
+    }
+
     function _leaf(
         address account,
         uint256 amount
