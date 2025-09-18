@@ -30,8 +30,8 @@ contract AirdropTest is Test {
         claimStartTime = block.timestamp + 1 days;
         claimEndTime = block.timestamp + 30 days;
 
-        leaf1 = keccak256(abi.encodePacked(user1, uint256(100 * 10 ** 18)));
-        leaf2 = keccak256(abi.encodePacked(user2, uint256(200 * 10 ** 18)));
+        leaf1 = _leaf(user1, 100 * 10 ** 18);
+        leaf2 = _leaf(user2, 200 * 10 ** 18);
         bytes32 left = leaf1 < leaf2 ? leaf1 : leaf2;
         bytes32 right = leaf1 < leaf2 ? leaf2 : leaf1;
         merkleRoot = keccak256(abi.encodePacked(left, right));
@@ -127,5 +127,12 @@ contract AirdropTest is Test {
         assertTrue(airdrop.hasClaimed(user1));
         assertTrue(airdrop.hasClaimed(user2));
         vm.stopPrank();
+    }
+
+    function _leaf(
+        address account,
+        uint256 amount
+    ) internal pure returns (bytes32) {
+        return keccak256(bytes.concat(keccak256(abi.encode(account, amount))));
     }
 }
