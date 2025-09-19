@@ -144,6 +144,46 @@ contract AirdropTest is Test {
         assertEq(airdrop.claimedAmount(user1), 100 * 10 ** 18);
     }
 
+    function test_RevertWhen_ZeroAmount() public {
+        bytes32[] memory proof = new bytes32[](0);
+        vm.warp(claimStartTime + 1);
+        vm.startPrank(user1);
+        vm.expectRevert(Airdrop.ZeroAmount.selector);
+        airdrop.claim(0, proof);
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_ClaimForZeroAddress() public {
+        bytes32[] memory proof = new bytes32[](0);
+        vm.warp(claimStartTime + 1);
+        vm.startPrank(user1);
+        vm.expectRevert(Airdrop.InvalidAccount.selector);
+        airdrop.claimFor(address(0), 100 * 10 ** 18, proof);
+        vm.stopPrank();
+    }
+
+    function test_RevertWhen_EmptyBatch() public {
+        address[] memory accounts = new address[](0);
+        uint256[] memory amounts = new uint256[](0);
+        bytes32[][] memory proofs = new bytes32[][](0);
+        vm.warp(claimStartTime + 1);
+        vm.expectRevert(Airdrop.InvalidBatchSize.selector);
+        airdrop.batchClaim(accounts, amounts, proofs);
+    }
+
+    function test_RevertWhen_BatchLengthMismatch() public {
+        address[] memory accounts = new address[](2);
+        uint256[] memory amounts = new uint256[](1);
+        bytes32[][] memory proofs = new bytes32[][](1);
+        accounts[0] = user1;
+        accounts[1] = user2;
+        amounts[0] = 100 * 10 ** 18;
+        proofs[0] = new bytes32[](1);
+        vm.warp(claimStartTime + 1);
+        vm.expectRevert(Airdrop.ArrayLengthMismatch.selector);
+        airdrop.batchClaim(accounts, amounts, proofs);
+    }
+
     function _leaf(
         address account,
         uint256 amount
