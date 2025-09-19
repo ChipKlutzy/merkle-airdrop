@@ -184,6 +184,18 @@ contract AirdropTest is Test {
         airdrop.batchClaim(accounts, amounts, proofs);
     }
 
+    function test_ClaimedAmountTracking() public {
+        bytes32[] memory proof1 = new bytes32[](1);
+        proof1[0] = leaf2;
+        vm.warp(claimStartTime + 1);
+        vm.startPrank(user1);
+        airdrop.claim(100 * 10 ** 18, proof1);
+        vm.stopPrank();
+
+        assertEq(airdrop.claimedAmount(user1), 100 * 10 ** 18);
+        assertEq(airdrop.totalClaimed(), 100 * 10 ** 18);
+    }
+
     function _leaf(
         address account,
         uint256 amount
