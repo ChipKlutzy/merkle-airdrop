@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+
+  --color-ink: #151c27;
+  --color-muted: #6b7280;
+  --color-surface: #f9f9ff;
+  --color-card-border: #e5e6e8;
+  --color-grid-line: #e2e8f8;
+  --color-violet: #7c3aed;
+  --color-violet-deep: #630ed4;
+  --color-violet-soft: #ede0ff;
+  --color-ghost: #f3f4f6;
+}
+
+body {
+  background-color: #ffffff;
+  background-image:
+    linear-gradient(to right, var(--color-grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--color-grid-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  color: var(--color-ink);
+}
