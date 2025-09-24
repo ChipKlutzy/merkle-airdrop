@@ -186,3 +186,15 @@ uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
    - Merkle proof
 3. The contract verifies the claim and transfers tokens
 4. Owner can update parameters or withdraw in emergencies
+
+## Frontend
+
+A minimal Next.js dApp lives in [`frontend/`](frontend) (branch `frontend`): wallet connect (injected / MetaMask via wagmi), live eligibility check against the deployed `Airdrop` contract, and Merkle-proof claims driven by `frontend/public/claims.json`.
+
+```bash
+cd frontend
+cp .env.example .env.local          # set NEXT_PUBLIC_AIRDROP_ADDRESS
+npm install
+npm run dev                         # http://localhost:3000
+node scripts/generate-claims.mjs    # regenerate claims + print Merkle root
+```
