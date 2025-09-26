@@ -44,4 +44,11 @@ export const airdropAbi = [
     inputs: [],
     outputs: [{ name: "", type: "address" }],
   },
+  { type: "error", name: "AlreadyClaimed", inputs: [] },
+  { type: "error", name: "ZeroAmount", inputs: [] },
+  { type: "error", name: "InvalidAccount", inputs: [] },
+  { type: "error", name: "InvalidProof", inputs: [] },
+  { type: "error", name: "ClaimNotStarted", inputs: [] },
+  { type: "error", name: "ClaimEnded", inputs: [] },
+  { type: "error", name: "TransferFailed", inputs: [] },
 ] as const;
