@@ -1,6 +1,6 @@
 import { Navbar } from "@/components/Navbar";
 import { Hero } from "@/components/Hero";
-import { ClaimCard } from "@/components/ClaimCard";
+import { ClaimView } from "@/components/ClaimView";
 import { Footer } from "@/components/Footer";
 
 export default function Home() {
@@ -10,7 +10,7 @@ export default function Home() {
       <main className="flex flex-1 flex-col">
         <Hero />
         <div className="pb-20">
-          <ClaimCard />
+          <ClaimView />
         </div>
       </main>
       <Footer />
