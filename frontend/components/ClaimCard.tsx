@@ -1,18 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAccount, useReadContract, useWriteContract } from "wagmi";
 import { waitForTransactionReceipt } from "wagmi/actions";
 import { airdropAbi } from "@/lib/abi";
-import {
-  AIRDROP_ADDRESS,
-  TARGET_CHAIN_ID,
-  config,
-} from "@/lib/wagmi";
+import { AIRDROP_ADDRESS, TARGET_CHAIN_ID, config } from "@/lib/wagmi";
+import { useTokenSymbol } from "@/hooks/useTokenSymbol";
+import { getStoredClaims } from "@/lib/airdrop-store";
 import { getClaim, type ClaimEntry } from "@/lib/claims";
+import { friendlyError } from "@/lib/errors";
 import { formatAmount, shortAddress } from "@/lib/format";
 import { useCountdown } from "@/hooks/useCountdown";
-import { useEffect } from "react";
 
 type Status =
   | "loading"
@@ -32,30 +30,26 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-export function ClaimCard() {
+export function ClaimCard({ airdropAddress }: { airdropAddress: `0x${string}` }) {
   const { address, isConnected } = useAccount();
+  const symbol = useTokenSymbol(airdropAddress);
   const [entry, setEntry] = useState<ClaimEntry | null>(null);
   const [claimsLoaded, setClaimsLoaded] = useState(false);
   const [txMessage, setTxMessage] = useState<string | null>(null);
+  const [txError, setTxError] = useState<string | null>(null);
 
-  const { data: startTime } = useReadContract({
-    address: AIRDROP_ADDRESS,
+  const base = {
+    address: airdropAddress,
     abi: airdropAbi,
-    functionName: "claimStartTime",
     chainId: TARGET_CHAIN_ID,
-  });
-  const { data: endTime, refetch: refetchEndTime } = useReadContract({
-    address: AIRDROP_ADDRESS,
-    abi: airdropAbi,
-    functionName: "claimEndTime",
-    chainId: TARGET_CHAIN_ID,
-  });
+  } as const;
+
+  const { data: startTime } = useReadContract({ ...base, functionName: "claimStartTime" });
+  const { data: endTime } = useReadContract({ ...base, functionName: "claimEndTime" });
   const { data: hasClaimedData, refetch: refetchHasClaimed } = useReadContract({
-    address: AIRDROP_ADDRESS,
-    abi: airdropAbi,
+    ...base,
     functionName: "hasClaimed",
     args: [address!],
-    chainId: TARGET_CHAIN_ID,
     query: { enabled: Boolean(address) },
   });
 
@@ -64,27 +58,43 @@ export function ClaimCard() {
 
   useEffect(() => {
     setClaimsLoaded(false);
+    setEntry(null);
     if (!address) return;
     let active = true;
-    getClaim(address).then((e) => {
-      if (active) {
-        setEntry(e);
-        setClaimsLoaded(true);
-      }
-    });
+
+    const stored = getStoredClaims(airdropAddress);
+    const found = stored?.[address.toLowerCase()];
+    if (found) {
+      setEntry(found as ClaimEntry);
+      setClaimsLoaded(true);
+      return () => {
+        active = false;
+      };
+    }
+    if (airdropAddress.toLowerCase() === AIRDROP_ADDRESS.toLowerCase()) {
+      getClaim(address).then((e) => {
+        if (active) {
+          setEntry(e);
+          setClaimsLoaded(true);
+        }
+      });
+    } else {
+      setClaimsLoaded(true);
+    }
     return () => {
       active = false;
     };
-  }, [address]);
+  }, [address, airdropAddress]);
 
   const { writeContractAsync } = useWriteContract();
 
   async function claim() {
     if (!entry) return;
+    setTxError(null);
     try {
       setTxMessage("Confirm in your wallet…");
       const hash = await writeContractAsync({
-        address: AIRDROP_ADDRESS,
+        address: airdropAddress,
         abi: airdropAbi,
         functionName: "claim",
         args: [BigInt(entry.amount), entry.proof],
@@ -93,10 +103,10 @@ export function ClaimCard() {
       setTxMessage("Transaction submitted — waiting for confirmation…");
       await waitForTransactionReceipt(config, { hash });
       setTxMessage(null);
-      await Promise.all([refetchHasClaimed(), refetchEndTime()]);
+      await refetchHasClaimed();
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Unknown error";
-      setTxMessage(msg.includes("User rejected") ? null : `Error: ${msg}`);
+      setTxMessage(null);
+      setTxError(friendlyError(err));
     }
   }
 
@@ -110,9 +120,11 @@ export function ClaimCard() {
   else status = entry ? "eligible" : "not-eligible";
 
   const displayAmount =
-    status === "eligible" && entry ? `${formatAmount(entry.amount)} AIR` : null;
+    status === "eligible" && entry
+      ? `${formatAmount(entry.amount)} ${symbol}`
+      : null;
 
-  const badgeStyles = {
+  const badgeStyles: Record<Status, string> = {
     loading: "bg-ghost text-muted",
     "not-connected": "bg-ghost text-muted",
     "not-started": "bg-violet-soft text-violet-deep",
@@ -122,7 +134,7 @@ export function ClaimCard() {
     "not-eligible": "bg-red-50 text-red-600",
   };
 
-  const badgeText = {
+  const badgeText: Record<Status, string> = {
     loading: "Loading…",
     "not-connected": "Not connected",
     "not-started": "Not started",
@@ -187,6 +199,12 @@ export function ClaimCard() {
       </div>
 
       {renderBody()}
+
+      {txError && (
+        <p className="mt-2 rounded-lg bg-red-50 px-4 py-2.5 text-center text-xs font-medium text-red-600">
+          {txError}
+        </p>
+      )}
 
       <button
         disabled={status !== "eligible" || !!txMessage}
